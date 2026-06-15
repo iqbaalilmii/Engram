@@ -1,11 +1,13 @@
-
+# **Imprint**
 Team Name: "Bastion Seize"
+
 backend python - fastAPI
+
 frontend: HTML, CSS, React
 
 
 
-aplikasi dengan nama "Imprint" platform forensik memori yang menganalisis RAM dump secara otomatis untuk keperluan Incident Investigation ketika terjadi serangan digital. Seluruh proses analisis, mulai dari ekstraksi proses, deteksi injeksi malware, pemindaian YARA, berjalan dalam satu pipeline otomatis yang dapat diakses melalui browser di localhost.
+Imprint adalah platform forensik memori yang menganalisis RAM dump secara otomatis untuk keperluan Incident Investigation ketika terjadi serangan digital. Seluruh proses analisis, mulai dari ekstraksi proses, deteksi injeksi malware, pemindaian YARA, berjalan dalam satu pipeline otomatis yang dapat diakses melalui browser di localhost.
 
 Terinspirasi dari workflow Autopsy Forensic Browser, Imprint menghadirkan pengalaman yang sama untuk domain memory forensics cukup jalankan satu perintah, buka browser, dan analisis dimulai.
 menggunakan python sebagai backend dan html sebagai frontend nya
@@ -15,8 +17,11 @@ menggunakan python sebagai backend dan html sebagai frontend nya
 Serangan siber modern — khususnya yang digunakan dalam operasi Cyber Warfare — semakin banyak menggunakan teknik fileless malware: malware yang hanya hidup di RAM dan tidak meninggalkan jejak di disk. Teknik seperti:
 
 Process Injection — menyuntikkan kode jahat ke proses Windows yang sah
+
 Process Hollowing — mengosongkan proses legitim dan mengisinya dengan payload
+
 Reflective DLL Injection — load malware langsung ke memori tanpa menyentuh disk
+
 Living-off-the-Land (LotL) — menyalahgunakan tools bawaan OS seperti PowerShell dan WMI 
 
 
