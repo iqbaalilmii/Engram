@@ -1,6 +1,6 @@
 # 🧠 Engram
 
-> **Automated Volatile Memory Forensics Platform** > Developed by Team: **"Bastion Seize"** · Powered by WRECK-IT 7.0
+> **Automated Volatile Memory Forensics Platform** > Developed by Team: **"Bastion Seize"** ·
 
 ---
 
