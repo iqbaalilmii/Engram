@@ -1,34 +1,49 @@
-# **Imprint**
-Team Name: "Bastion Seize"
+# 🧠 Engram
 
-backend python - fastAPI
+> **Automated Volatile Memory Forensics Platform** > Developed by Team: **"Bastion Seize"** · Powered by WRECK-IT 7.0
 
-frontend: HTML, CSS, React
+---
 
+## 📌 Sekilas Tentang Engram
 
+**Engram** adalah platform forensik memori (*volatile memory forensics*) modern yang mendeteksi, menganalisis, dan memvisualisasikan *RAM dump* secara otomatis untuk keperluan investigasi insiden (*Incident Response*). 
 
-Imprint adalah platform forensik memori yang menganalisis RAM dump secara otomatis untuk keperluan Incident Investigation ketika terjadi serangan digital. Seluruh proses analisis, mulai dari ekstraksi proses, deteksi injeksi malware, pemindaian YARA, berjalan dalam satu pipeline otomatis yang dapat diakses melalui browser di localhost.
+Terinspirasi dari alur kerja *Autopsy Forensic Browser*, **Engram** membawa kekuatan analisis memori tingkat dalam ke dalam antarmuka web yang intuitif. Cukup unggah *memory dump*, jalankan satu perintah, dan biarkan pipeline otomatis kami membedah memori di latar belakang sementara Anda menganalisis hasilnya langsung dari browser di `localhost`.
 
-Terinspirasi dari workflow Autopsy Forensic Browser, Imprint menghadirkan pengalaman yang sama untuk domain memory forensics cukup jalankan satu perintah, buka browser, dan analisis dimulai.
-menggunakan python sebagai backend dan html sebagai frontend nya
+---
 
-# Latar Belakang
+## 💥 Latar Belakang & Masalah
 
-Serangan siber modern — khususnya yang digunakan dalam operasi Cyber Warfare — semakin banyak menggunakan teknik fileless malware: malware yang hanya hidup di RAM dan tidak meninggalkan jejak di disk. Teknik seperti:
+Serangan siber modern — terutama dalam operasi *Cyber Warfare* tingkat tinggi — semakin bergantung pada teknik **Fileless Malware**. Ini adalah jenis malware yang hanya hidup di dalam RAM dan tidak meninggalkan jejak fisik di dalam *harddisk* (*disk*). 
 
-Process Injection — menyuntikkan kode jahat ke proses Windows yang sah
+Beberapa teknik manipulasi memori evasif yang sering digunakan meliputi:
+* **Process Injection**: Menyuntikkan kode jahat ke dalam proses Windows yang sah (e.g., `rundll32.exe`).
+* **Process Hollowing**: Mengosongkan memori proses legitim dan menggantinya dengan payload berbahaya.
+* **Reflective DLL Injection**: Memuat file DLL malware langsung ke memori tanpa menyentuh *disk*.
+* **Living-off-the-Land (LotL)**: Menyalahgunakan *tools* bawaan sistem operasi seperti PowerShell untuk mengeksekusi perintah jahat.
 
-Process Hollowing — mengosongkan proses legitim dan mengisinya dengan payload
+**Masalahnya:** *Antivirus* konvensional tidak mampu mendeteksi aktivitas ini karena mereka hanya memindai *disk*. Alat standar industri seperti **Volatility 3** sangat kuat, tetapi murni berbasis CLI (Command Line) dan membutuhkan keahlian teknis yang sangat tinggi. Proses korelasi data manual antara daftar proses, koneksi jaringan, dan injeksi memori bisa memakan waktu berjam-jam.
 
-Reflective DLL Injection — load malware langsung ke memori tanpa menyentuh disk
+**Solusi Kami:** **Engram** mengotomatisasi seluruh pipeline forensik ini. Kami memangkas waktu investigasi dari hitungan jam menjadi menit, memberikan visualisasi korelasi data instan bagi tim analis SOC dan *Incident Responder*.
 
-Living-off-the-Land (LotL) — menyalahgunakan tools bawaan OS seperti PowerShell dan WMI 
+---
 
+## 🛠️ Arsitektur Teknologi
 
-...tidak terdeteksi oleh antivirus konvensional. Satu-satunya cara menemukan jejaknya adalah melalui analisis RAM.
+Engram dibangun dengan memisahkan fungsi pemrosesan berat di backend dan visualisasi interaktif di frontend:
 
-Masalahnya: tools yang ada seperti Volatility 3 masih berbasis CLI dan membutuhkan keahlian tinggi. Proses analisis yang seharusnya bisa diselesaikan dalam menit, bisa memakan waktu berjam-jam secara manual.
+* **Backend:** Python dengan **FastAPI** — Berperan sebagai core engine yang menangani upload file RAM dump besar, mengeksekusi modul Volatility 3 secara *asynchronous*, mem-parsing data teks/JSON mentah, serta melakukan integrasi ke *OSINT Threat Intelligence* (seperti VirusTotal).
+* **Frontend:** **React.js** & **Tailwind CSS** — Menghadirkan antarmuka dasbor ala *Security Operations Center* (SOC) yang responsif, scannable, dan cepat untuk melacak relasi PID, status memori jahat, dan indikator kompromi (IOC).
+* **Forensics Engine:** **Volatility 3** integration.
 
-Imprint hadir untuk mengotomasi seluruh pipeline ini, memangkas waktu analisis dari berjam-jam menjadi menit, sehingga tim respons insiden dapat bergerak lebih cepat dari ancaman.
+---
 
-aplikasi berjalan di localhost di browser 
+## 🚀 Fitur Utama (Core Panels)
+
+1. **Process List Tracker**: Menganalisis pohon proses (`pslist`/`pstree`), melacak Parent PID (PPID), dan otomatis memberikan tanda merah jika ada proses fileless tanpa path file yang jelas di disk.
+2. **Network Connections Monitor**: Memetakan sisa-sisa struktur data jaringan (`netscan`) untuk mencocokkan PID lokal dengan IP/Domain asing (mendeteksi aktivitas *C2 Beaconing*).
+3. **Malfind Analyzer**: Menyisir memori VAD (*Virtual Address Descriptor*) untuk memburu proteksi memori mencurigakan seperti `PAGE_EXECUTE_READWRITE` (RWX).
+4. **IOC Automated List**: Ekstraksi otomatis indikator kompromi (IP, Domain, dan Hash) dibarengi dengan skor reputasi intelijen ancaman.
+
+---
+
