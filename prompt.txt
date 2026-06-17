@@ -1,5 +1,6 @@
 buatlah sebuah software python dengan interface menggunakan react yang berjalan
 di local browser. user menginputkan data yang dibutuhkan pada UI react yang sudah
-tersedia di folder frontend dan kemudian python akan menjalankannya. ini adalah sofware
+tersedia di folder frontend dan kemudian python akan menjalankannya. buat software nya
+berdasarkan yang ada di README.MD di project ini. ini adalah sofware
 untuk scanning RAM mencari apakah ada yang berbahaya seperti malware yang tersimpan
-di RAM komputer. folder pythonnya ada di backend
+di RAM komputer. folder pythonnya ada di backend. nama software ini adalah "engram"
