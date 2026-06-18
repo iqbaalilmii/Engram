@@ -16,15 +16,26 @@
 
 **Engram** adalah platform forensik memori (*volatile memory forensics*) modern yang mendeteksi, menganalisis, dan memvisualisasikan *RAM dump* secara otomatis untuk keperluan investigasi insiden (*Incident Response*).
 
-Terinspirasi dari alur kerja *Autopsy Forensic Browser*, **Engram** membawa kekuatan analisis memori tingkat dalam ke dalam antarmuka web yang intuitif. Cukup unggah *memory dump*, jalankan satu perintah, dan biarkan pipeline otomatis kami membedah memori di latar belakang — sementara Anda menganalisis hasilnya langsung dari browser di `localhost`.
+Terinspirasi dari alur kerja *Autopsy Forensic Browser*, **Engram** membawa kekuatan analisis memori tingkat dalam ke dalam antarmuka web yang intuitif. Cukup unggah *memory dump* atau masukkan path direktori dump Anda, dan biarkan pipeline otomatis kami membedah memori di latar belakang — sementara Anda menganalisis hasilnya langsung dari browser di `localhost`.
 
 ---
 
 ## 🖥️ Demo
 
-> 📸 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/7ed41447-3050-4952-a4ff-d65c3c25d25c" alt="Engram - Cases Dashboard" width="100%" />
+  <br/><em>Cases Dashboard — manajemen sesi investigasi</em>
+</p>
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/72edfe1c-d57a-4970-9dcb-fca08b1d7ac9" alt="Engram - Analysis Panel" width="100%" />
+  <br/><em>Analysis Panel — korelasi proses, jaringan, dan memori</em>
+</p>
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/3298c27e-cf99-4249-896d-a56e313ca021" alt="Engram - IOC & Threat Intel" width="100%" />
+  <br/><em>IOC Automated List — ekstraksi indikator kompromi dengan skor VirusTotal</em>
+</p>
 
 ---
 
@@ -100,9 +111,9 @@ npm run dev
 ## 📖 Cara Penggunaan
 
 1. **Buka** `http://localhost:3000` di browser
-2. **Upload** file memory dump melalui halaman utama
-3. **Tunggu** pipeline analisis selesai berjalan di background
-4. **Analisis** hasil investigasi melalui 4 panel dashboard:
+2. **Unggah** file memory dump **atau** masukkan path direktori tempat dump disimpan
+3. **Analisis berjalan otomatis** — pipeline Volatility 3 akan langsung memproses dump di background
+4. **Pantau** hasil investigasi secara real-time melalui 4 panel dashboard:
    - Identifikasi proses mencurigakan di **Process List Tracker**
    - Lacak koneksi C2 di **Network Connections Monitor**
    - Temukan injeksi memori di **Malfind Analyzer**
@@ -198,9 +209,9 @@ Transparansi adalah bagian dari profesionalisme. Berikut batasan yang perlu dike
 
 | Nama | Role |
 |------|------|
-| *Ivan Aryasatya* | Backend Engineer |
-| *Radisty Kirana Dhisa* | Frontend Engineer |
-| *Iqbal Ilmi* | Forensics Analyst |
+| **Ivan Aryasatya** | Backend Engineer |
+| **Radisty Kirana Dhisa** | Frontend Engineer |
+| **Iqbal Ilmi** | Forensics Analyst |
 
 ---
 
@@ -211,5 +222,5 @@ Didistribusikan di bawah lisensi **MIT**. Lihat [`LICENSE`](LICENSE) untuk detai
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by Team Bastion Seize · Hackathon 2026</sub>
+  <sub>Built with ❤️ by Team Bastion Seize · Hackathon 2025</sub>
 </div>
