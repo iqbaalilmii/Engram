@@ -12,6 +12,13 @@ import re
 from datetime import datetime
 from pydantic import BaseModel
 from typing import List, Optional
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+VT_API_KEY = os.getenv("VIRUSTOTAL_API_KEY")
+if not VT_API_KEY:
+    print("[WARNING] VIRUSTOTAL_API_KEY not found in .env. IP reputation scan will be skipped.", file=sys.stderr)
 
 # In-memory storage - Global
 cases = {}
@@ -56,10 +63,39 @@ def convert_windows_to_wsl_path(windows_path: str) -> str:
         return f"/mnt/{drive}/{rest}"
     return windows_path.replace('\\', '/')
 
-def run_volatility(dump_path_wsl: str, plugin: str) -> Optional[List[dict]]:
-    """Eksekusi vol3 via WSL menggunakan full path vol.py"""
-    # Menggunakan full path skrip vol.py sesuai instruksi user
-    cmd = ["wsl", "python3", "/mnt/d/tools/volatility3/vol.py", "--offline", "-f", dump_path_wsl, "-r", "json", plugin]
+def run_volatility(dump_path: str, plugin: str) -> Optional[List[dict]]:
+    """Eksekusi vol3 menggunakan vol.py internal dan venv python"""
+    
+    # Menentukan path secara dinamis agar portable
+    src_dir = os.path.dirname(os.path.abspath(__file__))
+    backend_dir = os.path.dirname(src_dir)
+    project_root = os.path.dirname(backend_dir)
+    
+    vol_path = os.path.join(backend_dir, "volatility3", "vol.py")
+    
+    # Mencari executable python di venv proyek
+    if os.name == 'nt':
+        venv_python = os.path.join(project_root, "venv", "Scripts", "python.exe")
+    else:
+        # Di Linux/WSL, coba bin/python (Linux venv) dulu
+        venv_python = os.path.join(project_root, "venv", "bin", "python")
+        if not os.path.exists(venv_python):
+            # Fallback ke Windows venv executable jika berada di WSL/shared drive
+            venv_python = os.path.join(project_root, "venv", "Scripts", "python.exe")
+
+    # Jika kita masih tidak menemukan venv python, fallback ke sistem
+    if not os.path.exists(venv_python):
+        venv_python = "python3" if os.name != 'nt' else "python"
+
+    # Jika kita di Linux tapi memanggil python.exe (Windows), 
+    # kita biarkan path dump apa adanya (asumsi user input path Windows).
+    # Jika memanggil python Linux, pastikan path dump dalam format WSL.
+    actual_dump_path = dump_path
+    if not venv_python.lower().endswith(".exe") and os.name != 'nt':
+        actual_dump_path = convert_windows_to_wsl_path(dump_path)
+
+    # Membangun perintah eksekusi
+    cmd = [venv_python, vol_path, "--offline", "-f", actual_dump_path, "-r", "json", plugin]
     
     print(f"[DEBUG] Menjalankan: {' '.join(cmd)}")
     
@@ -68,7 +104,7 @@ def run_volatility(dump_path_wsl: str, plugin: str) -> Optional[List[dict]]:
         process = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=900)
         
         if process.returncode != 0:
-            print(f"[!] ERROR pada WSL/Volatility (Plugin: {plugin}):")
+            print(f"[!] ERROR pada Volatility (Plugin: {plugin}):")
             print(f"--- STDERR ---\n{process.stderr}\n--------------")
             return None
         
@@ -87,6 +123,62 @@ def run_volatility(dump_path_wsl: str, plugin: str) -> Optional[List[dict]]:
     except Exception as e:
         print(f"[!] EXCEPTION saat menjalankan vol3: {e}")
         return None
+
+def check_ip_reputation(ip_address: str) -> dict:
+    """
+    Melakukan pengecekan reputasi IP menggunakan VirusTotal Public API.
+    Mempertimbangkan rate limit.
+    """
+    if not VT_API_KEY:
+        return {"malicious": 0, "suspicious": 0, "status": "skipped_no_key"}
+
+    # Batasi untuk IP publik saja
+    if ip_address in ["127.0.0.1", "0.0.0.0"] or \
+       ip_address.startswith("10.") or \
+       ip_address.startswith("172.16.") or \
+       ip_address.startswith("172.17.") or \
+       ip_address.startswith("172.18.") or \
+       ip_address.startswith("172.19.") or \
+       ip_address.startswith("172.2") or \
+       ip_address.startswith("172.30.") or \
+       ip_address.startswith("172.31.") or \
+       ip_address.startswith("192.168.") or \
+       ":" in ip_address: # Simple check for IPv6, often local/internal
+        return {"malicious": 0, "suspicious": 0, "status": "skipped_private_ip"}
+
+    url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip_address}"
+    headers = {"x-apikey": VT_API_KEY}
+    
+    try:
+        # Timeout pendek untuk menghindari blocking terlalu lama
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+        data = response.json()
+        
+        stats = data.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+        malicious = stats.get("malicious", 0)
+        suspicious = stats.get("suspicious", 0)
+        
+        return {"malicious": malicious, "suspicious": suspicious, "status": "checked"}
+    except requests.exceptions.HTTPError as e:
+        if response.status_code == 429:
+            print(f"[WARNING] VirusTotal API Rate Limit Exceeded for {ip_address}", file=sys.stderr)
+            return {"malicious": 0, "suspicious": 0, "status": "rate_limited"}
+        print(f"[ERROR] HTTP Error for {ip_address}: {e}", file=sys.stderr)
+        return {"malicious": 0, "suspicious": 0, "status": "error"}
+    except requests.exceptions.ConnectionError as e:
+        print(f"[ERROR] Connection Error for {ip_address}: {e}", file=sys.stderr)
+        return {"malicious": 0, "suspicious": 0, "status": "connection_error"}
+    except requests.exceptions.Timeout:
+        print(f"[WARNING] VirusTotal API Timeout for {ip_address}", file=sys.stderr)
+        return {"malicious": 0, "suspicious": 0, "status": "timeout"}
+    except json.JSONDecodeError:
+        print(f"[ERROR] Failed to decode JSON from VirusTotal for {ip_address}", file=sys.stderr)
+        return {"malicious": 0, "suspicious": 0, "status": "json_error"}
+    except Exception as e:
+        print(f"[ERROR] Unexpected error in check_ip_reputation for {ip_address}: {e}", file=sys.stderr)
+        return {"malicious": 0, "suspicious": 0, "status": "error"}
+
 
 def calculate_process_score(proc: dict, all_procs: List[dict]) -> tuple:
     """Heuristik deteksi malware sederhana"""
@@ -121,12 +213,17 @@ def calculate_process_score(proc: dict, all_procs: List[dict]) -> tuple:
     
     return min(score, 100), reasons, severity
 
-async def background_analysis(case_id: str):
+def background_analysis(case_id: str):
     """Pipeline analisis utama yang berjalan di background"""
     global cases, jobs
     if case_id not in cases: return
     
     case = cases[case_id]
+    if case_id not in jobs:
+        jobs[case_id] = {
+            "status": "queued",
+            "progress": {"percent": 0, "current_plugin": "init"}
+        }
     job = jobs[case_id]
     
     if not os.path.exists(case["dump_path"]):
@@ -135,28 +232,54 @@ async def background_analysis(case_id: str):
         case["status"] = "failed"
         return
 
-    dump_wsl = convert_windows_to_wsl_path(case["dump_path"])
+    dump_path = case["dump_path"]
     job["status"] = "running"
+    case["status"] = "running"
     
-    # Plugin list sesuai bantuan help user
+    # Plugin list sesuai instruksi Hackathon
     pipeline = [
-        ("windows.pslist", 33),
-        ("windows.netscan", 66),
-        ("windows.malware.malfind", 100)
+        ("windows.info", 10),
+        ("windows.pslist", 25),
+        ("windows.cmdline", 40),
+        ("windows.netscan", 55),
+        ("windows.malware.malfind", 70),
+        ("windows.malware.pebmasquerade", 85),
+        ("windows.registry.userassist", 100)
     ]
     
-    for plugin, percent in pipeline:
+    for i, (plugin, percent) in enumerate(pipeline):
         job["progress"]["current_plugin"] = plugin
-        results = run_volatility(dump_wsl, plugin)
+        results = run_volatility(dump_path, plugin)
         
         if results is None:
+            # windows.info seringkali gagal jika profil tidak pas, kita beri grace period
+            if plugin == "windows.info":
+                cases[case_id]["raw_results"][plugin] = []
+                continue
             job["status"] = "failed"
             case["status"] = "failed"
             return
 
         cases[case_id]["raw_results"][plugin] = results
-        job["progress"]["completed_plugins"] += 1
         job["progress"]["percent"] = percent
+
+        # Khusus untuk windows.netscan, lakukan pengecekan reputasi IP
+        if plugin == "windows.netscan":
+            netscan_results = cases[case_id]["raw_results"]["windows.netscan"]
+            # ... (logika VT tetap dipertahankan)
+            external_ips_to_check = []
+            for conn in netscan_results:
+                foreign_addr = conn.get("ForeignAddr")
+                state = conn.get("State")
+                if foreign_addr and state == "ESTABLISHED":
+                    if not (foreign_addr.startswith("10.") or foreign_addr.startswith("172.") or foreign_addr.startswith("192.168.") or foreign_addr == "127.0.0.1" or ":" in foreign_addr):
+                        external_ips_to_check.append(foreign_addr)
+            unique_ips_to_check = list(set(external_ips_to_check))[:5]
+            for ip in unique_ips_to_check:
+                vt_data = check_ip_reputation(ip)
+                for conn in netscan_results:
+                    if conn.get("ForeignAddr") == ip:
+                        conn["vt_status"] = vt_data
 
     job["status"] = "completed"
     case["status"] = "completed"
@@ -165,11 +288,12 @@ async def background_analysis(case_id: str):
     pslist = cases[case_id]["raw_results"].get("windows.pslist", [])
     malfind = cases[case_id]["raw_results"].get("windows.malware.malfind", [])
     netscan = cases[case_id]["raw_results"].get("windows.netscan", [])
+    peb = cases[case_id]["raw_results"].get("windows.malware.pebmasquerade", [])
     
     case["summary"] = {
         "total_processes": len(pslist),
         "suspicious_processes": len([p for p in pslist if calculate_process_score(p, pslist)[0] > 40]),
-        "critical_alerts": len(malfind),
+        "critical_alerts": len(malfind) + len(peb),
         "ioc_found": len(netscan),
         "yara_hits": 0
     }
@@ -190,7 +314,11 @@ async def create_case(case_data: CaseCreate):
         "status": "ready",
         "created_at": datetime.now().isoformat() + "Z",
         "summary": None,
-        "raw_results": {"windows.pslist": [], "windows.netscan": [], "windows.malware.malfind": []}
+        "raw_results": {
+            "windows.pslist": [], "windows.netscan": [], "windows.malware.malfind": [],
+            "windows.info": [], "windows.cmdline": [], "windows.malware.pebmasquerade": [],
+            "windows.registry.userassist": []
+        }
     }
     cases[case_id] = new_case
     return {"success": True, "data": new_case, "error": None}
@@ -211,37 +339,51 @@ async def analyze_case(case_id: str, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=404, detail="Case not found")
     
     jobs[case_id] = {
-        "job_id": f"job_{uuid.uuid4().hex[:8]}",
-        "case_id": case_id,
         "status": "queued",
-        "progress": {"total_plugins": 3, "completed_plugins": 0, "current_plugin": "init", "percent": 0}
+        "progress": {"percent": 0, "current_plugin": "init"}
     }
     
     cases[case_id]["status"] = "running"
     background_tasks.add_task(background_analysis, case_id)
-    return {"success": True, "data": {"job_id": jobs[case_id]["job_id"], "status": "queued"}}
+    return {"success": True, "data": {"case_id": case_id, "status": "queued"}}
 
 @app.get("/api/cases/{case_id}/status")
 async def get_case_status(case_id: str):
     if case_id not in cases:
         raise HTTPException(status_code=404, detail="Case not found")
+    
     job = jobs.get(case_id)
     if not job:
-        return {"success": True, "data": {"status": cases[case_id]["status"], "progress": {"percent": 0}}}
+        # Fallback if job not started yet but case exists
+        return {
+            "success": True, 
+            "data": {
+                "status": cases[case_id]["status"], 
+                "progress": {"percent": 0, "current_plugin": "init"}
+            }
+        }
+    
     return {"success": True, "data": job}
 
 @app.get("/api/cases/{case_id}/processes")
 async def get_processes(case_id: str):
     if case_id not in cases: raise HTTPException(status_code=404)
     raw_ps = cases[case_id].get("raw_results", {}).get("windows.pslist", [])
+    raw_cmd = cases[case_id].get("raw_results", {}).get("windows.cmdline", [])
+    
+    # Map CMDLine data by PID
+    cmd_map = {c.get("PID"): c.get("Args", "") for c in raw_cmd}
+    
     processes = []
     for p in raw_ps:
         score, reasons, severity = calculate_process_score(p, raw_ps)
+        pid = p.get("PID")
         processes.append({
-            "pid": p.get("PID"),
+            "pid": pid,
             "ppid": p.get("PPID"),
             "name": p.get("ImageFileName"),
             "path": p.get("FileName") or "N/A",
+            "command_line": cmd_map.get(pid, "N/A"),
             "score": score,
             "severity": severity
         })
@@ -261,25 +403,71 @@ async def get_network(case_id: str):
             "process": pid_map.get(pid) or "Unknown",
             "local": f"{n.get('LocalAddr')}:{n.get('LocalPort')}",
             "foreign": f"{n.get('ForeignAddr')}:{n.get('ForeignPort')}",
-            "state": n.get("State")
+            "state": n.get("State"),
+            "vt_status": n.get("vt_status", {"malicious": 0, "suspicious": 0, "status": "not_scanned"})
         })
     return {"success": True, "data": {"connections": connections}}
 
-@app.get("/api/cases/{case_id}/malfind")
-async def get_malfind(case_id: str):
+@app.get("/api/cases/{case_id}/threats")
+async def get_threats(case_id: str):
     if case_id not in cases: raise HTTPException(status_code=404)
     raw_mal = cases[case_id].get("raw_results", {}).get("windows.malware.malfind", [])
-    findings = []
+    raw_peb = cases[case_id].get("raw_results", {}).get("windows.malware.pebmasquerade", [])
+    
+    threats = []
     for m in raw_mal:
-        offset = m.get("StartVPN")
-        findings.append({
+        threats.append({
+            "type": "Code Injection",
             "pid": m.get("PID"),
             "process": m.get("Process") or "Unknown",
-            "address": f"0x{offset:x}" if isinstance(offset, int) else str(offset),
-            "protection": m.get("Protection"),
+            "details": f"Protection: {m.get('Protection')} at {m.get('StartVPN')}",
             "severity": "critical"
         })
-    return {"success": True, "data": {"findings": findings}}
+    
+    for p in raw_peb:
+        threats.append({
+            "type": "PEB Masquerade",
+            "pid": p.get("PID"),
+            "process": p.get("Process") or "Unknown",
+            "details": "PEB image path doesn't match loader information (Spoofing Detected)",
+            "severity": "high"
+        })
+        
+    return {"success": True, "data": {"threats": threats}}
+
+@app.get("/api/cases/{case_id}/userassist")
+async def get_userassist(case_id: str):
+    if case_id not in cases: raise HTTPException(status_code=404)
+    raw_ua = cases[case_id].get("raw_results", {}).get("windows.registry.userassist", [])
+    
+    activities = []
+    for u in raw_ua:
+        activities.append({
+            "path": u.get("Path"),
+            "run_count": u.get("Run count"),
+            "last_executed": u.get("Last session"),
+            "hive": u.get("Hive")
+        })
+    return {"success": True, "data": {"activities": activities}}
+
+@app.get("/api/test/set_status/{case_id}/{status}/{plugin}/{percent}")
+async def set_test_status(case_id: str, status: str, plugin: str, percent: int):
+    global cases, jobs
+    if case_id not in cases:
+        cases[case_id] = {
+            "case_id": case_id,
+            "case_name": "Test Case",
+            "dump_path": "test.raw",
+            "analyst_name": "Test Analyst",
+            "status": status,
+            "raw_results": {}
+        }
+    jobs[case_id] = {
+        "status": status,
+        "progress": {"percent": percent, "current_plugin": plugin}
+    }
+    cases[case_id]["status"] = status
+    return {"success": True}
 
 if os.path.exists(frontend_dir):
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="static")

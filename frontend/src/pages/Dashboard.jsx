@@ -201,7 +201,7 @@ export default function Dashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#e5e7eb]">
-                      {['Process', 'Foreign Address', 'State', ''].map(h => (
+                      {['Process', 'Foreign Address', 'State', 'VT Status'].map(h => (
                         <th key={h} className="text-left font-mono text-[10px] text-[#9ca3af] uppercase tracking-widest px-3 py-2 bg-[#fafafa]">
                           {h}
                         </th>
@@ -214,6 +214,21 @@ export default function Dashboard() {
                         <td className="px-3 py-2 font-mono text-xs text-[#111827]">{n.process}</td>
                         <td className="px-3 py-2 font-mono text-xs text-[#6b7280]">{n.foreign}</td>
                         <td className="px-3 py-2 font-mono text-[10px] text-[#9ca3af]">{n.state}</td>
+                        <td className="px-3 py-2">
+                          {n.vt_status && n.vt_status.malicious > 0 ? (
+                            <span className="font-mono text-[10px] bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">
+                              🚨 {n.vt_status.malicious} Antivirus
+                            </span>
+                          ) : n.vt_status && n.vt_status.status === "checked" ? (
+                            <span className="font-mono text-[10px] bg-green-100 text-green-600 border border-green-200 px-1.5 py-0.5 rounded">
+                              ✅ Clean
+                            </span>
+                          ) : (
+                            <span className="font-mono text-[10px] bg-gray-100 text-gray-600 border border-gray-200 px-1.5 py-0.5 rounded">
+                              Unchecked
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2">
                           {n.malicious
                             ? <span className="font-mono text-[10px] bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">malicious</span>

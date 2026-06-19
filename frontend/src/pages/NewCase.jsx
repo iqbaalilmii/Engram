@@ -45,14 +45,21 @@ export default function NewCase() {
     setError(null)
 
     try {
+      console.log("Creating case...")
       const caseRes = await axios.post(`${API_BASE}/api/cases`, form)
       if (!caseRes.data.success) throw new Error(caseRes.data.error)
       const case_id = caseRes.data.data.case_id
+      console.log("Case created:", case_id)
 
+      console.log("Triggering analysis...")
       const analyzeRes = await axios.post(`${API_BASE}/api/cases/${case_id}/analyze`)
       if (!analyzeRes.data.success) throw new Error(analyzeRes.data.error)
+      console.log("Analysis triggered successfully.")
 
-      navigate(`/progress/${case_id}`)
+      // Small delay to ensure DB/Memory is updated
+      setTimeout(() => {
+        navigate(`/progress/${case_id}`)
+      }, 300)
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'An error occurred.')
     } finally {

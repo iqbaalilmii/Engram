@@ -5,9 +5,13 @@ import axios from 'axios'
 const API_BASE = 'http://localhost:8000'
 
 const PIPELINE_CONFIG = [
-  { id: 'windows.pslist',           label: 'windows.pslist',           desc: 'Enumerate running processes' },
-  { id: 'windows.netscan',          label: 'windows.netscan',          desc: 'Scan network connections' },
-  { id: 'windows.malware.malfind',  label: 'windows.malware.malfind',  desc: 'Detect memory injections' },
+  { id: 'windows.info',                 label: 'windows.info',                 desc: 'Show OS & kernel details' },
+  { id: 'windows.pslist',               label: 'windows.pslist',               desc: 'Enumerate running processes' },
+  { id: 'windows.cmdline',              label: 'windows.cmdline',              desc: 'Extract process command line arguments' },
+  { id: 'windows.netscan',              label: 'windows.netscan',              desc: 'Scan network connections' },
+  { id: 'windows.malware.malfind',      label: 'windows.malware.malfind',      desc: 'Detect memory injections & code implants' },
+  { id: 'windows.malware.pebmasquerade', label: 'windows.malware.pebmasquerade', desc: 'Detect process name spoofing' },
+  { id: 'windows.registry.userassist',  label: 'windows.registry.userassist',  desc: 'Gather user application execution history' },
 ]
 
 export default function Progress() {
@@ -23,6 +27,8 @@ export default function Progress() {
 
   // Fetch initial case metadata
   useEffect(() => {
+    if (!case_id) return
+    
     axios.get(`${API_BASE}/api/cases/${case_id}`)
       .then(res => {
         if (res.data.success) setCaseInfo(res.data.data)
@@ -34,10 +40,15 @@ export default function Progress() {
 
   // Real-time polling for analysis status
   useEffect(() => {
-    const interval = setInterval(async () => {
+    if (!case_id) {
+      setError("Invalid Case ID")
+      return
+    }
+
+    const fetchStatus = async () => {
       try {
         const res = await axios.get(`${API_BASE}/api/cases/${case_id}/status`)
-        if (!res.data.success) throw new Error(res.data.error)
+        if (!res.data.success) throw new Error(res.data.error || 'Failed to fetch status')
 
         const { status: backendStatus, progress } = res.data.data
         
@@ -46,34 +57,42 @@ export default function Progress() {
         setCurrentPlugin(progress?.current_plugin ?? '')
 
         if (backendStatus === 'completed') {
-          clearInterval(interval)
           setRedirecting(true)
           // Graceful redirect to dashboard
           setTimeout(() => navigate(`/dashboard/${case_id}`), 2500)
+          return true // signal to clear interval
         }
 
         if (backendStatus === 'failed') {
-          clearInterval(interval)
-          setError('Analisis Volatility 3 gagal. Pastikan file dump valid dan WSL aktif.')
+          setError('Analisis Volatility 3 gagal. Pastikan file dump valid dan backend aktif.')
+          return true // signal to clear interval
         }
       } catch (err) {
         console.error("Polling error:", err)
-        // We don't clear interval here to allow for transient network issues
       }
+      return false
+    }
+
+    // Initial fetch
+    fetchStatus()
+
+    const interval = setInterval(async () => {
+      const shouldStop = await fetchStatus()
+      if (shouldStop) clearInterval(interval)
     }, 2000)
 
     return () => clearInterval(interval)
   }, [case_id, navigate])
 
   const getPluginState = (pluginId, index) => {
-    // Logic to determine success/executing/pending based on percentage and current plugin
     if (status === 'completed') return 'success'
     if (status === 'failed' && currentPlugin === pluginId) return 'failed'
     
-    // Calculate if done based on completion steps (33, 66, 100)
-    const thresholds = [33, 66, 100]
-    if (percent >= thresholds[index] && currentPlugin !== pluginId) return 'success'
+    // Find the index of the currently executing plugin in our config
+    const currentIndex = PIPELINE_CONFIG.findIndex(p => p.id === currentPlugin)
+    
     if (currentPlugin === pluginId) return 'executing'
+    if (currentIndex !== -1 && index < currentIndex) return 'success'
     return 'pending'
   }
 
@@ -91,7 +110,7 @@ export default function Progress() {
           {status === 'running' && (
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00d1ff] animate-pulse"></span>
-              <span className="text-[9px] text-[#00d1ff] tracking-widest uppercase font-bold">WSL_LIVE</span>
+              <span className="text-[9px] text-[#00d1ff] tracking-widest uppercase font-bold">PORTABLE_MODE</span>
             </div>
           )}
         </div>
@@ -119,10 +138,10 @@ export default function Progress() {
             <div className="flex justify-between items-end">
               <div className="space-y-1">
                 <p className="text-[10px] text-[#666] uppercase tracking-[0.15em] font-bold">
-                  {status === 'queued' ? 'INITIALIZING_WSL...' : 
+                  {status === 'queued' ? 'INITIALIZING_ENGINE...' : 
                    status === 'failed' ? 'ANALYSIS_FAILED' :
                    status === 'completed' ? 'ANALYSIS_COMPLETE' : 
-                   `RUNNING ${currentPlugin.toUpperCase()} (WSL)...`}
+                   `RUNNING ${currentPlugin.toUpperCase()}...`}
                 </p>
                 <p className="text-[9px] text-[#aaa]">TASK_SEQUENCE: 01-03 // VOLATILITY_3_FRAMEWORK</p>
               </div>
@@ -146,14 +165,19 @@ export default function Progress() {
             <p className="text-[9px] text-[#999] uppercase tracking-widest mb-4">Volatility 3 Pipeline</p>
             <div className="space-y-0 relative">
               {/* Connector Line */}
-              <div className="absolute left-[7px] top-2 bottom-2 w-[1px] bg-[#f0f0f0]"></div>
+              <div className="absolute left-[15px] top-2 bottom-2 w-[1px] bg-[#f0f0f0]"></div>
               
               {PIPELINE_CONFIG.map((plugin, index) => {
                 const state = getPluginState(plugin.id, index)
                 return (
-                  <div key={plugin.id} className="relative flex items-start gap-5 py-3 pl-0 group">
+                  <div 
+                    key={plugin.id} 
+                    className={`relative flex items-start gap-5 py-3 px-2 rounded-sm transition-all duration-300 ${
+                      state === 'executing' ? 'bg-[#00d1ff]/5' : ''
+                    }`}
+                  >
                     {/* Status Icon */}
-                    <div className="relative z-10 mt-1">
+                    <div className="relative z-10 mt-1 flex-shrink-0">
                       {state === 'success' && (
                         <div className="w-3.5 h-3.5 bg-white border border-[#1a1a1a] flex items-center justify-center">
                           <div className="w-1.5 h-1.5 bg-[#1a1a1a]"></div>
@@ -200,7 +224,7 @@ export default function Progress() {
               <div className="space-y-1">
                 <p className="text-[11px] text-[#ff4d4d] font-bold uppercase tracking-wider">Analysis Failed</p>
                 <p className="text-[10px] text-[#cc6666] leading-relaxed">
-                  {error || "Analisis Volatility 3 gagal. Pastikan file dump valid, WSL aktif, dan folder tools tersedia."}
+                  {error || "Analisis Volatility 3 gagal. Pastikan file dump valid dan folder tools tersedia."}
                 </p>
                 <button 
                   onClick={() => navigate('/')}
@@ -221,12 +245,19 @@ export default function Progress() {
             </div>
           )}
 
+          {/* Footnote */}
+          <div className="border-t border-[#f0f0f0] pt-4">
+            <p className="text-[10px] text-[#888] leading-relaxed">
+              Eksekusi Volatility 3 secara lokal mungkin memakan waktu beberapa menit tergantung ukuran RAM dump.
+            </p>
+          </div>
+
         </div>
 
         {/* Footer info */}
         <div className="bg-[#fafafa] border-t border-[#f0f0f0] px-5 py-3 flex items-center justify-between">
           <span className="text-[9px] text-[#ccc] tracking-[0.2em]">ENGRAM_v1.0.4_BETA</span>
-          <span className="text-[9px] text-[#ccc] uppercase">CORE_SUBSYSTEM: WSL_VOL3_INTEGRATION</span>
+          <span className="text-[9px] text-[#ccc] uppercase">CORE_SUBSYSTEM: ENGINE_VOL3_INTEGRATION</span>
         </div>
 
       </div>
