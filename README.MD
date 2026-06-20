@@ -28,12 +28,12 @@ Terinspirasi dari alur kerja *Autopsy Forensic Browser*, **Engram** membawa keku
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/72edfe1c-d57a-4970-9dcb-fca08b1d7ac9" alt="Engram - Analysis Panel" width="100%" />
+  <img src="https://github.com/user-attachments/assets/22eb4bd6-9bd1-4814-a256-8501625c7979" alt="Engram - Analysis Panel" width="100%" />
   <br/><em>Analysis Panel — korelasi proses, jaringan, dan memori</em>
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/3298c27e-cf99-4249-896d-a56e313ca021" alt="Engram - IOC & Threat Intel" width="100%" />
+  <img src="https://github.com/user-attachments/assets/0004bd91-7534-4044-9f9c-4f26d279fd8c" alt="Engram - IOC & Threat Intel" width="100%" />
   <br/><em>IOC Automated List — ekstraksi indikator kompromi dengan skor VirusTotal</em>
 </p>
 
@@ -203,15 +203,6 @@ Transparansi adalah bagian dari profesionalisme. Berikut batasan yang perlu dike
 - **Konektivitas**: Fitur IOC scoring memerlukan koneksi internet untuk mengakses VirusTotal API.
 - **API Rate Limit**: VirusTotal tier gratis dibatasi 4 request/menit — analisis IOC besar akan berjalan lebih lambat.
 
----
-
-## 👥 Tim Bastion Seize
-
-| Nama | Role |
-|------|------|
-| **Ivan Aryasatya** | Backend Engineer |
-| **Radisty Kirana Dhisa** | Frontend Engineer |
-| **Iqbal Ilmi** | Forensics Analyst |
 
 ---
 
