@@ -43,6 +43,16 @@ Terinspirasi dari alur kerja *Autopsy Forensic Browser*, **Engram** membawa keku
 
 Serangan siber modern — terutama dalam operasi *Cyber Warfare* tingkat tinggi — semakin bergantung pada teknik **Fileless Malware**. Ini adalah jenis malware yang hanya hidup di dalam RAM dan tidak meninggalkan jejak fisik di *harddisk*.
 
+> 📊 **Fakta & Angka:**
+>
+> **70%** dari seluruh serangan malware serius saat ini menggunakan teknik fileless yang tidak meninggalkan file apapun di disk *(SentinelOne, 2026)*
+>
+> Serangan jenis ini meningkat **78%** hanya dalam satu tahun terakhir *(HackingLoops, 2026)*
+>
+> **77%** dari ransomware yang berhasil menginfeksi korban melewati antivirus sepenuhnya via teknik fileless *(PurpleSec Cybersecurity Statistics)*
+>
+> **19%** kasus serangan berhasil mengeksfiltrasi data dalam waktu kurang dari 1 jam *(Mandiant M-Trends 2025 / Unit42)*
+
 Beberapa teknik manipulasi memori evasif yang sering digunakan meliputi:
 
 | Teknik | Deskripsi |
@@ -52,7 +62,7 @@ Beberapa teknik manipulasi memori evasif yang sering digunakan meliputi:
 | **Reflective DLL Injection** | Memuat DLL malware langsung ke memori tanpa menyentuh *disk* |
 | **Living-off-the-Land (LotL)** | Menyalahgunakan tools bawaan OS seperti PowerShell untuk mengeksekusi perintah jahat |
 
-**Masalahnya:** Antivirus konvensional tidak mampu mendeteksi aktivitas ini karena hanya memindai *disk*. Alat standar industri seperti **Volatility 3** sangat kuat, tetapi murni berbasis CLI dan membutuhkan keahlian teknis tinggi. Proses korelasi data manual antara daftar proses, koneksi jaringan, dan injeksi memori bisa memakan waktu **berjam-jam**.
+**Masalahnya:** Antivirus konvensional tidak mampu mendeteksi aktivitas ini karena hanya memindai *disk*. Alat standar industri seperti **Volatility 3** sangat kuat, tetapi murni berbasis CLI dan membutuhkan keahlian teknis tinggi. Investigasi manual yang dieskalasi ke analis senior membutuhkan **hingga 2 jam per kasus** *(SOC Operations Survey, arxiv.org)* — sementara serangan sudah bisa mengeksfiltrasi data dalam 60 menit pertama.
 
 **Solusi Kami:** **Engram** mengotomatisasi seluruh pipeline forensik ini — memangkas waktu investigasi dari hitungan jam menjadi **menit**, dengan visualisasi korelasi data instan bagi tim analis SOC dan *Incident Responder*.
 
@@ -62,12 +72,14 @@ Beberapa teknik manipulasi memori evasif yang sering digunakan meliputi:
 
 Pastikan sistem Anda telah memiliki:
 
-- **Docker** & **Docker Compose** (direkomendasikan)
-- **Python 3.11+** (jika menjalankan tanpa Docker)
-- **Node.js 18+** (jika menjalankan tanpa Docker)
-- File memory dump (format: `.raw`, `.mem`, `.vmem`, `.dmp`)
-- **VirusTotal API Key** — [daftar gratis di sini](https://www.virustotal.com/gui/join-us)
-- RAM minimal **8 GB** pada host (untuk analisis dump besar)
+| Kebutuhan | Keterangan |
+|-----------|------------|
+| **Docker & Docker Compose** | Direkomendasikan untuk instalasi paling mudah |
+| **Python 3.11+** | Jika menjalankan tanpa Docker |
+| **Node.js 18+** | Jika menjalankan tanpa Docker |
+| **Memory Dump** | Format `.raw`, `.mem`, `.vmem`, atau `.dmp` |
+| **VirusTotal API Key** | [Daftar gratis di sini](https://www.virustotal.com/gui/join-us) |
+| **RAM Host minimal 8 GB** | Untuk analisis dump berukuran besar |
 
 ---
 
@@ -95,12 +107,12 @@ docker-compose up --build
 ### Tanpa Docker (Manual)
 
 ```bash
-# --- Backend ---
+# Backend
 cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 
-# --- Frontend (terminal baru) ---
+# Frontend (terminal baru)
 cd frontend
 npm install
 npm run dev
@@ -114,10 +126,13 @@ npm run dev
 2. **Unggah** file memory dump **atau** masukkan path direktori tempat dump disimpan
 3. **Analisis berjalan otomatis** — pipeline Volatility 3 akan langsung memproses dump di background
 4. **Pantau** hasil investigasi secara real-time melalui 4 panel dashboard:
-   - Identifikasi proses mencurigakan di **Process List Tracker**
-   - Lacak koneksi C2 di **Network Connections Monitor**
-   - Temukan injeksi memori di **Malfind Analyzer**
-   - Review IOC dengan skor threat intel di **IOC Automated List**
+
+| Panel | Fungsi |
+|-------|--------|
+| **Process List Tracker** | Identifikasi proses mencurigakan dan anomali pohon proses |
+| **Network Connections Monitor** | Lacak koneksi C2 dan aktivitas jaringan berbahaya |
+| **Malfind Analyzer** | Temukan injeksi kode dan region memori mencurigakan |
+| **IOC Automated List** | Review indikator kompromi dengan skor threat intelligence |
 
 ---
 
@@ -197,11 +212,13 @@ OS Target: Windows 10 x64
 
 Transparansi adalah bagian dari profesionalisme. Berikut batasan yang perlu diketahui:
 
-- **Platform**: Saat ini hanya mendukung **Windows memory dump**. Dukungan Linux menyusul.
-- **Malfind Noise**: Plugin Malfind secara inheren menghasilkan false positive. Review manual oleh analis tetap diperlukan.
-- **Ukuran File**: Diuji hingga dump berukuran **~8 GB**. Dump lebih besar mungkin memerlukan resource tambahan.
-- **Konektivitas**: Fitur IOC scoring memerlukan koneksi internet untuk mengakses VirusTotal API.
-- **API Rate Limit**: VirusTotal tier gratis dibatasi 4 request/menit — analisis IOC besar akan berjalan lebih lambat.
+| Batasan | Keterangan |
+|---------|------------|
+| **Platform** | Saat ini hanya mendukung Windows memory dump. Dukungan Linux menyusul. |
+| **Malfind Noise** | Plugin Malfind secara inheren menghasilkan false positive — review manual oleh analis tetap diperlukan. |
+| **Ukuran File** | Diuji hingga dump berukuran ~8 GB. Dump lebih besar mungkin memerlukan resource tambahan. |
+| **Konektivitas** | Fitur IOC scoring memerlukan koneksi internet untuk mengakses VirusTotal API. |
+| **API Rate Limit** | VirusTotal tier gratis dibatasi 4 request/menit — analisis IOC besar akan berjalan lebih lambat. |
 
 
 ---
